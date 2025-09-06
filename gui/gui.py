@@ -51,6 +51,66 @@ def promotion_menu(screen, color):
 
     return choice
 
+def modal_game_over(screen, message, board):
+    """
+    Muestra un modal con el mensaje de jaque mate y opciones.
+    Recibe 'board' para poder redibujar el tablero congelado de fondo.
+    """
+    import sys
+
+    font = pygame.font.SysFont("Arial", 36, bold=True)
+    small_font = pygame.font.SysFont("Arial", 28)
+
+    play_again_rect = pygame.Rect(200, 350, 240, 50)
+    exit_rect = pygame.Rect(200, 420, 240, 50)
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                x, y = pygame.mouse.get_pos()
+                if play_again_rect.collidepoint(x, y):
+                    # limpiar eventos residuales antes de salir del modal
+                    pygame.event.clear()
+                    return "play_again"
+                elif exit_rect.collidepoint(x, y):
+                    pygame.quit()
+                    sys.exit()
+
+        # Redibujar tablero y piezas (estado congelado)
+        draw_board(screen)
+        for r in range(8):
+            for c in range(8):
+                piece = board.get_piece(r, c)
+                if piece != "--":
+                    screen.blit(IMAGES[piece], (c * SQ_SIZE, r * SQ_SIZE))
+
+        # Fondo semi-transparente encima del tablero
+        s = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        s.fill((0, 0, 0, 180))
+        screen.blit(s, (0, 0))
+
+        # Texto principal
+        text = font.render(message, True, (255, 255, 255))
+        screen.blit(text, (WIDTH//2 - text.get_width()//2, 200))
+
+        # Botón "Jugar de nuevo"
+        pygame.draw.rect(screen, (0, 200, 0), play_again_rect)
+        play_text = small_font.render("Jugar de nuevo", True, (255, 255, 255))
+        screen.blit(play_text, (play_again_rect.centerx - play_text.get_width()//2,
+                                play_again_rect.centery - play_text.get_height()//2))
+
+        # Botón "Salir"
+        pygame.draw.rect(screen, (200, 0, 0), exit_rect)
+        exit_text = small_font.render("Salir", True, (255, 255, 255))
+        screen.blit(exit_text, (exit_rect.centerx - exit_text.get_width()//2,
+                                exit_rect.centery - exit_text.get_height()//2))
+
+        pygame.display.flip()
+
+
 def run_game():
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -90,7 +150,21 @@ def run_game():
                         if piece[1] == "p" and (end[0] == 0 or end[0] == 7):
                             promote_to = promotion_menu(screen, piece[0])
 
+                        # Guardar turno actual antes de mover
+                        turno_actual = board.turn  
+
                         board.move_piece(start, end, promote_to=promote_to)
+
+                        # Verificar si el rival quedó en jaque mate
+                        # turno_actual = el que movió
+                        # rival = el que ahora debe mover
+                        rival = board.turn  
+                        if board.is_checkmate(rival):
+                            ganador = "Blancas" if turno_actual == "w" else "Negras"
+                            action = modal_game_over(screen, f"¡Jaque Mate! Ganaron las {ganador}", board)
+                            if action == "play_again":
+                                board = ChessBoard()
+                                selected_square = None
                     
                     # Resetear selección aunque el movimiento no sea válido
                     selected_square = None

@@ -22,14 +22,17 @@ class ChessBoard:
     def get_piece(self, row, col):
         return self.board[row][col]
 
-    def is_valid_move(self, start_pos, end_pos):
+    def is_valid_move(self, start_pos, end_pos, color_override=None):
         start_row, start_col = start_pos
         piece = self.board[start_row][start_col]
 
-        if piece == "--" or piece[0] != self.turn:
+        # Color que se usa para validar (puede forzarse con override)
+        color = color_override if color_override else self.turn
+
+        if piece == "--" or piece[0] != color:
             return False
 
-        # Validar reglas geométricas básicas
+        # Validar reglas geométricas
         if not moves.is_legal_move(self, start_pos, end_pos):
             if not rules.ChessRules.is_special_move(self, start_pos, end_pos):
                 return False
@@ -48,7 +51,7 @@ class ChessBoard:
             else:
                 self.black_king_pos = (end_pos[0], end_pos[1])
 
-        king_in_check = rules.ChessRules.is_in_check(self, self.turn)
+        king_in_check = rules.ChessRules.is_in_check(self, color)
 
         # Revertir
         self.board[start_row][start_col] = piece
@@ -60,6 +63,7 @@ class ChessBoard:
                 self.black_king_pos = old_king_pos
 
         return not king_in_check
+
 
     def move_piece(self, start_pos, end_pos, promote_to="q"):
         if not self.is_valid_move(start_pos, end_pos):
@@ -105,3 +109,53 @@ class ChessBoard:
         Verifica si el rey del color dado está en jaque.
         """
         return rules.ChessRules.is_in_check(self, color)
+    
+    def has_valid_moves(self, color):
+        from .utils import get_all_moves
+        # obtener todos los movimientos pseudo-legales del color
+        moves = get_all_moves(self, color, pseudo_legal=True)
+
+        # probar si al menos uno no deja al rey en jaque
+        for start, end in moves:
+            start_piece = self.board[start[0]][start[1]]
+            captured = self.board[end[0]][end[1]]
+
+            # simular
+            self.board[end[0]][end[1]] = start_piece
+            self.board[start[0]][start[1]] = "--"
+
+            old_king_pos = None
+            if start_piece[1] == "k":
+                old_king_pos = self.white_king_pos if color == "w" else self.black_king_pos
+                if color == "w":
+                    self.white_king_pos = end
+                else:
+                    self.black_king_pos = end
+
+            in_check = rules.ChessRules.is_in_check(self, color)
+
+            # revertir
+            self.board[start[0]][start[1]] = start_piece
+            self.board[end[0]][end[1]] = captured
+            if old_king_pos:
+                if color == "w":
+                    self.white_king_pos = old_king_pos
+                else:
+                    self.black_king_pos = old_king_pos
+
+            if not in_check:
+                return True
+
+        return False
+    
+    def is_checkmate(self, color):
+        """
+        Devuelve True si el jugador está en jaque mate.
+        """
+        if self.is_check(color) and not self.has_valid_moves(color):
+            return True
+        return False
+    
+    
+    
+    
