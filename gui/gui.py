@@ -84,11 +84,15 @@ def run_game():
                     end = (row, col)
                     piece = board.get_piece(*start)
 
-                    promote_to = "q"  # por defecto
-                    if piece[1] == "p" and (end[0] == 0 or end[0] == 7):
-                        promote_to = promotion_menu(screen, piece[0])
+                    # Verificar que el movimiento sea válido ANTES de hacer promoción
+                    if board.is_valid_move(start, end):  
+                        promote_to = None
+                        if piece[1] == "p" and (end[0] == 0 or end[0] == 7):
+                            promote_to = promotion_menu(screen, piece[0])
 
-                    board.move_piece(start, end, promote_to=promote_to)
+                        board.move_piece(start, end, promote_to=promote_to)
+                    
+                    # Resetear selección aunque el movimiento no sea válido
                     selected_square = None
 
         # 1. Dibuja tablero vacío

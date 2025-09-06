@@ -5,7 +5,7 @@ chess-ai/
 │   ├── pieces.py     # Manejo de imágenes y piezas
 │   └── gui.py        # Ventana principal (controlador gráfico)
 │
-│── engine/           # Aquí irá después tu motor (IA, minimax, etc.)
+│── IA/           # Aquí irá después tu motor (IA, minimax, etc.)
 │   ├── __init__.py
 │   ├── move_generator.py
 │   ├── evaluation.py
