@@ -97,7 +97,15 @@ def run_game():
 
         # 1. Dibuja tablero vacío
         draw_board(screen)
-
+        # 2. Resaltar al rey si está en jaque
+        if board.is_check(board.turn):
+            if board.turn == "w":
+                king_row, king_col = board.white_king_pos
+            else:
+                king_row, king_col = board.black_king_pos
+            from gui.board import highlight_king_in_check
+            highlight_king_in_check(screen, king_row, king_col)
+            
         # 2. Si hay selección, resáltala
         if selected_square is not None:
             highlight_square(screen, selected_square[0], selected_square[1])

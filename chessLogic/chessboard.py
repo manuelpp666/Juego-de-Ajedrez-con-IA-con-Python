@@ -99,3 +99,9 @@ class ChessBoard:
         # Cambiar turno
         self.turn = "b" if self.turn == "w" else "w"
         return True
+    
+    def is_check(self, color):
+        """
+        Verifica si el rey del color dado está en jaque.
+        """
+        return rules.ChessRules.is_in_check(self, color)

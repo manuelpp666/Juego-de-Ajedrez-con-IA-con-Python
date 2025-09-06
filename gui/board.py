@@ -15,6 +15,7 @@ SQUARE_SIZE = WIDTH // COLS
 WHITE = (245, 245, 220)
 BROWN = (139, 69, 19)
 GREEN = (0, 255, 0, 100)  # Verde semi-transparente
+RED = (255, 0, 0, 120) 
 
 def draw_board(win):
     """
@@ -38,3 +39,11 @@ def highlight_square(win, row, col):
         s = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE), pygame.SRCALPHA)  
         s.fill(GREEN)
         win.blit(s, (col * SQUARE_SIZE, row * SQUARE_SIZE))
+
+def highlight_king_in_check(win, row, col):
+    """
+    Resalta la casilla del rey en rojo si está en jaque.
+    """
+    s = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE), pygame.SRCALPHA)  
+    s.fill(RED)
+    win.blit(s, (col * SQUARE_SIZE, row * SQUARE_SIZE))
