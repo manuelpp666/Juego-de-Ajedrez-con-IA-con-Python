@@ -75,7 +75,18 @@ class ChessBoard:
 
         # Ejecutar movimientos especiales si aplica
         if rules.ChessRules.is_special_move(self, start_pos, end_pos):
-            rules.ChessRules.apply_special_move(self, start_pos, end_pos)
+            # Enroque
+            if piece[1] == "k" and abs(end_col - start_col) == 2:
+                kingside = end_col > start_col
+                if rules.ChessRules.can_castle(self, piece[0], kingside):
+                    rules.ChessRules.apply_special_move(self, start_pos, end_pos)
+                else:
+                    return False  # Enroque inválido
+            # En passant
+            elif piece[1] == "p" and rules.ChessRules.en_passant(self, start_pos, end_pos):
+                rules.ChessRules.apply_special_move(self, start_pos, end_pos)
+            else:
+                return False
         else:
             # Movimiento normal
             self.board[end_row][end_col] = piece
@@ -99,6 +110,24 @@ class ChessBoard:
         self.en_passant_possible = None
         if piece[1] == "p" and abs(end_row - start_row) == 2:
             self.en_passant_possible = ((start_row + end_row)//2, start_col)
+
+        # 🔹 ACTUALIZAR DERECHOS DE ENROQUE AQUÍ 🔹
+        if piece == "wk":
+            self.castling_rights["wK"] = False
+            self.castling_rights["wQ"] = False
+        elif piece == "bk":
+            self.castling_rights["bK"] = False
+            self.castling_rights["bQ"] = False
+        elif piece == "wr":
+            if start_pos == (7, 0):  # torre izquierda blanca
+                self.castling_rights["wQ"] = False
+            elif start_pos == (7, 7):  # torre derecha blanca
+                self.castling_rights["wK"] = False
+        elif piece == "br":
+            if start_pos == (0, 0):  # torre izquierda negra
+                self.castling_rights["bQ"] = False
+            elif start_pos == (0, 7):  # torre derecha negra
+                self.castling_rights["bK"] = False
 
         # Cambiar turno
         self.turn = "b" if self.turn == "w" else "w"
