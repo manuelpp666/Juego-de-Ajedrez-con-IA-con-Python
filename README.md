@@ -16,6 +16,7 @@ chess-ai/
 │   ├── chessboard.py # Representación del tablero en memoria (8x8, FEN, etc.)
 │   ├── moves.py      # Reglas de movimiento de cada pieza
 │   └── utils.py      # Funciones auxiliares
+│   └── move.py       # Para que funcione el rehacer y deshacer
 │
 │── assets/           # Imágenes de las piezas (blancas y negras)
 │   ├── wp.png        # Peón blanco

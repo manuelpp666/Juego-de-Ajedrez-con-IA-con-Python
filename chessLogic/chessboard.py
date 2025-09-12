@@ -1,5 +1,7 @@
 from . import moves
 from . import rules
+from .move import Move
+from chessLogic.utils import get_all_moves
 
 class ChessBoard:
     def __init__(self):
@@ -14,10 +16,16 @@ class ChessBoard:
             ["wr", "wn", "wb", "wq", "wk", "wb", "wn", "wr"]
         ]
         self.turn = "w"
-        self.en_passant_possible = None
+        self.en_passant_square = None   # 🔹 antes tenías en_passant_possible
         self.castling_rights = {"wK": True, "wQ": True, "bK": True, "bQ": True}
         self.white_king_pos = (7, 4)
         self.black_king_pos = (0, 4)
+
+        # 🔹 nuevo: log de movimientos
+        self.move_log = []
+
+        # 🔹 opcional: log de enroques para poder restaurarlos en undo
+        self.castling_rights_log = [self.castling_rights.copy()]
 
     def get_piece(self, row, col):
         return self.board[row][col]
@@ -65,73 +73,6 @@ class ChessBoard:
         return not king_in_check
 
 
-    def move_piece(self, start_pos, end_pos, promote_to="q"):
-        if not self.is_valid_move(start_pos, end_pos):
-            return False
-
-        start_row, start_col = start_pos
-        end_row, end_col = end_pos
-        piece = self.board[start_row][start_col]
-
-        # Ejecutar movimientos especiales si aplica
-        if rules.ChessRules.is_special_move(self, start_pos, end_pos):
-            # Enroque
-            if piece[1] == "k" and abs(end_col - start_col) == 2:
-                kingside = end_col > start_col
-                if rules.ChessRules.can_castle(self, piece[0], kingside):
-                    rules.ChessRules.apply_special_move(self, start_pos, end_pos)
-                else:
-                    return False  # Enroque inválido
-            # En passant
-            elif piece[1] == "p" and rules.ChessRules.en_passant(self, start_pos, end_pos):
-                rules.ChessRules.apply_special_move(self, start_pos, end_pos)
-            else:
-                return False
-        else:
-            # Movimiento normal
-            self.board[end_row][end_col] = piece
-            self.board[start_row][start_col] = "--"
-
-        # Actualizar posición del rey
-        if piece[1] == "k":
-            if piece[0] == "w":
-                self.white_king_pos = (end_row, end_col)
-            else:
-                self.black_king_pos = (end_row, end_col)
-
-        # Promoción de peón
-        if piece[1] == "p" and (end_row == 0 or end_row == 7):
-            if promote_to in ["q", "r", "b", "n"]:
-                self.board[end_row][end_col] = piece[0] + promote_to
-            else:
-                self.board[end_row][end_col] = piece[0] + "q"  # por defecto
-
-        # Actualizar captura al paso
-        self.en_passant_possible = None
-        if piece[1] == "p" and abs(end_row - start_row) == 2:
-            self.en_passant_possible = ((start_row + end_row)//2, start_col)
-
-        # 🔹 ACTUALIZAR DERECHOS DE ENROQUE AQUÍ 🔹
-        if piece == "wk":
-            self.castling_rights["wK"] = False
-            self.castling_rights["wQ"] = False
-        elif piece == "bk":
-            self.castling_rights["bK"] = False
-            self.castling_rights["bQ"] = False
-        elif piece == "wr":
-            if start_pos == (7, 0):  # torre izquierda blanca
-                self.castling_rights["wQ"] = False
-            elif start_pos == (7, 7):  # torre derecha blanca
-                self.castling_rights["wK"] = False
-        elif piece == "br":
-            if start_pos == (0, 0):  # torre izquierda negra
-                self.castling_rights["bQ"] = False
-            elif start_pos == (0, 7):  # torre derecha negra
-                self.castling_rights["bK"] = False
-
-        # Cambiar turno
-        self.turn = "b" if self.turn == "w" else "w"
-        return True
     
     def is_check(self, color):
         """
@@ -185,6 +126,131 @@ class ChessBoard:
             return True
         return False
     
+    def make_move(self, move: Move):
+        """Aplica un movimiento en el tablero con soporte de reglas"""
+        # Guardar estado antes del movimiento
+        move.prev_castling_rights = self.castling_rights.copy()
+        move.prev_en_passant = self.en_passant_square
+
+        # Movimiento normal
+        self.board[move.start_row][move.start_col] = "--"
+        self.board[move.end_row][move.end_col] = move.piece_moved
+
+        # 🔹 Promoción
+        if move.is_pawn_promotion:
+            self.board[move.end_row][move.end_col] = move.piece_moved[0] + move.promotion_choice
+
+        # 🔹 Enroque
+        if move.is_castling:
+            if move.end_col == 6:  # corto
+                self.board[move.end_row][5] = self.board[move.end_row][7]
+                self.board[move.end_row][7] = "--"
+            else:  # largo
+                self.board[move.end_row][3] = self.board[move.end_row][0]
+                self.board[move.end_row][0] = "--"
+
+        # 🔹 En passant
+        if move.is_en_passant:
+            if move.piece_moved[0] == "w":
+                self.board[move.end_row + 1][move.end_col] = "--"
+            else:
+                self.board[move.end_row - 1][move.end_col] = "--"
+
+        # 🔹 Actualizar en_passant
+        if move.piece_moved[1] == "p" and abs(move.end_row - move.start_row) == 2:
+            self.en_passant_square = ((move.start_row + move.end_row)//2, move.start_col)
+        else:
+            self.en_passant_square = None
+
+        # 🔹 Actualizar derechos de enroque
+        if move.piece_moved == "wk":
+            self.castling_rights["wK"] = False
+            self.castling_rights["wQ"] = False
+        elif move.piece_moved == "bk":
+            self.castling_rights["bK"] = False
+            self.castling_rights["bQ"] = False
+        elif move.piece_moved == "wr":
+            if move.start_row == 7 and move.start_col == 0:
+                self.castling_rights["wQ"] = False
+            elif move.start_row == 7 and move.start_col == 7:
+                self.castling_rights["wK"] = False
+        elif move.piece_moved == "br":
+            if move.start_row == 0 and move.start_col == 0:
+                self.castling_rights["bQ"] = False
+            elif move.start_row == 0 and move.start_col == 7:
+                self.castling_rights["bK"] = False
+
+        # Guardar log y cambiar turno
+        self.move_log.append(move)
+        self.turn = "b" if self.turn == "w" else "w"
+
+
+    def undo_move(self):
+        """Revierte el último movimiento"""
+        if not self.move_log:
+            return
+
+        move = self.move_log.pop()
+
+        # Restaurar tablero
+        self.board[move.start_row][move.start_col] = move.piece_moved
+        self.board[move.end_row][move.end_col] = move.piece_captured
+
+        # 🔹 Revertir promoción
+        if move.is_pawn_promotion:
+            self.board[move.start_row][move.start_col] = move.piece_moved
+            self.board[move.end_row][move.end_col] = move.piece_captured
+
+        # 🔹 Revertir enroque
+        if move.is_castling:
+            if move.end_col == 6:  # corto
+                self.board[move.end_row][7] = self.board[move.end_row][5]
+                self.board[move.end_row][5] = "--"
+            else:  # largo
+                self.board[move.end_row][0] = self.board[move.end_row][3]
+                self.board[move.end_row][3] = "--"
+
+        # 🔹 Revertir en passant
+        if move.is_en_passant:
+            self.board[move.end_row][move.end_col] = "--"
+            if move.piece_moved[0] == "w":
+                self.board[move.end_row + 1][move.end_col] = "bp"
+            else:
+                self.board[move.end_row - 1][move.end_col] = "wp"
+
+        # Restaurar estados previos
+        self.castling_rights = move.prev_castling_rights
+        self.en_passant_square = move.prev_en_passant
+
+        # Revertir turno
+        self.turn = "b" if self.turn == "w" else "w"
+
     
+
+
+    def is_game_over(self):
+        """
+        Devuelve True si el juego terminó: jaque mate o tablas por ahogado.
+        """
+        # Tablas: ningún movimiento válido para el jugador actual
+        if not self.has_valid_moves("w") or not self.has_valid_moves("b"):
+            return True
+        # Jaque mate
+        if self.is_checkmate("w") or self.is_checkmate("b"):
+            return True
+        return False
     
+    def get_legal_moves(self):
+        """
+        Devuelve una lista de objetos Move que son legales para el turno actual.
+        """
+        legal_moves = []
+        all_moves = get_all_moves(self, self.turn, pseudo_legal=True)  # retorna [(start, end), ...]
+        
+        for start, end in all_moves:
+            if self.is_valid_move(start, end):
+                move = Move(start, end, self.board)
+                legal_moves.append(move)
+        
+        return legal_moves
     

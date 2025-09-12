@@ -1,7 +1,8 @@
 import pygame
-from gui.board import draw_board, highlight_square
+from gui.board import draw_board, highlight_square, highlight_king_in_check
 from gui.pieces import load_images, IMAGES
 from chessLogic.chessboard import ChessBoard
+from chessLogic.move import Move
 
 WIDTH, HEIGHT = 640, 640
 SQ_SIZE = WIDTH // 8
@@ -110,6 +111,50 @@ def modal_game_over(screen, message, board):
 
         pygame.display.flip()
 
+def modal_choose_mode(screen):
+    """
+    Modal inicial: elegir jugar contra Humano o IA.
+    Retorna 'human' o 'ia'.
+    """
+    import sys
+    font = pygame.font.SysFont("Arial", 36, bold=True)
+
+    human_rect = pygame.Rect(200, 250, 240, 50)
+    ia_rect = pygame.Rect(200, 320, 240, 50)
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                x, y = pygame.mouse.get_pos()
+                if human_rect.collidepoint(x, y):
+                    return "human"
+                elif ia_rect.collidepoint(x, y):
+                    return "ia"
+
+        # Fondo
+        screen.fill((0, 0, 0))
+
+        # Texto principal
+        text = font.render("Elige modo de juego", True, (255, 255, 255))
+        screen.blit(text, (WIDTH//2 - text.get_width()//2, 150))
+
+        # Botón Humano
+        pygame.draw.rect(screen, (0, 200, 0), human_rect)
+        h_text = font.render("Humano vs Humano", True, (255, 255, 255))
+        screen.blit(h_text, (human_rect.centerx - h_text.get_width()//2,
+                             human_rect.centery - h_text.get_height()//2))
+
+        # Botón IA
+        pygame.draw.rect(screen, (200, 0, 0), ia_rect)
+        ia_text = font.render("Humano vs IA", True, (255, 255, 255))
+        screen.blit(ia_text, (ia_rect.centerx - ia_text.get_width()//2,
+                              ia_rect.centery - ia_text.get_height()//2))
+
+        pygame.display.flip()
+
 
 def run_game():
     pygame.init()
@@ -117,10 +162,13 @@ def run_game():
     pygame.display.set_caption("Ajedrez con IA")
 
     clock = pygame.time.Clock()
-    board = ChessBoard()  # estado del tablero
-    load_images()         # carga piezas
+    board = ChessBoard()
+    load_images()
 
-    selected_square = None  # para guardar la casilla seleccionada
+    # 🔹 Preguntar modo antes de iniciar
+    mode = modal_choose_mode(screen)  # ← 'ia' o 'human'
+
+    selected_square = None
     running = True
 
     while running:
@@ -128,63 +176,82 @@ def run_game():
             if event.type == pygame.QUIT:
                 running = False
 
-            # Detectar clic
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                x, y = pygame.mouse.get_pos()
-                col = x // SQ_SIZE
-                row = y // SQ_SIZE
+            # Turno humano
+            if mode == "human" or (mode == "ia" and board.turn == "w"):
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    x, y = pygame.mouse.get_pos()
+                    col = x // SQ_SIZE
+                    row = y // SQ_SIZE
 
-                if selected_square is None:
-                    # Primer clic -> seleccionar pieza
-                    if board.get_piece(row, col) != "--":
-                        selected_square = (row, col)
-                else:
-                    # Segundo clic -> mover pieza
-                    start = selected_square
-                    end = (row, col)
-                    piece = board.get_piece(*start)
+                    if selected_square is None:
+                        if board.get_piece(row, col) != "--":
+                            selected_square = (row, col)
+                    else:
+                        start = selected_square
+                        end = (row, col)
+                        piece = board.get_piece(*start)
 
-                    # Verificar que el movimiento sea válido ANTES de hacer promoción
-                    if board.is_valid_move(start, end):  
-                        promote_to = None
-                        if piece[1] == "p" and (end[0] == 0 or end[0] == 7):
-                            promote_to = promotion_menu(screen, piece[0])
+                        if board.is_valid_move(start, end):
+                            promote_to = None
+                            if piece[1] == "p" and (end[0] == 0 or end[0] == 7):
+                                promote_to = promotion_menu(screen, piece[0])
 
-                        # Guardar turno actual antes de mover
-                        turno_actual = board.turn  
+                            turno_actual = board.turn
+                            move = Move(start, end, board.board, promotion_choice=promote_to or "q")
+                            board.make_move(move)
 
-                        board.move_piece(start, end, promote_to=promote_to)
+                            # 🔹 Actualizar pantalla inmediatamente para ver tu jugada
+                            draw_board(screen)
+                            if board.is_check(board.turn):
+                                if board.turn == "w":
+                                    king_row, king_col = board.white_king_pos
+                                else:
+                                    king_row, king_col = board.black_king_pos
+                                highlight_king_in_check(screen, king_row, king_col)
+                            for r in range(8):
+                                for c in range(8):
+                                    piece_draw = board.get_piece(r, c)
+                                    if piece_draw != "--":
+                                        screen.blit(IMAGES[piece_draw], (c * SQ_SIZE, r * SQ_SIZE))
+                            pygame.display.flip()
 
-                        # Verificar si el rival quedó en jaque mate
-                        # turno_actual = el que movió
-                        # rival = el que ahora debe mover
-                        rival = board.turn  
-                        if board.is_checkmate(rival):
-                            ganador = "Blancas" if turno_actual == "w" else "Negras"
-                            action = modal_game_over(screen, f"¡Jaque Mate! Ganaron las {ganador}", board)
-                            if action == "play_again":
-                                board = ChessBoard()
-                                selected_square = None
-                    
-                    # Resetear selección aunque el movimiento no sea válido
-                    selected_square = None
+                            # Verificar jaque mate
+                            rival = board.turn
+                            if board.is_checkmate(rival):
+                                ganador = "Blancas" if turno_actual == "w" else "Negras"
+                                action = modal_game_over(screen, f"¡Jaque Mate! Ganaron las {ganador}", board)
+                                if action == "play_again":
+                                    board = ChessBoard()
+                                    selected_square = None
 
-        # 1. Dibuja tablero vacío
+                        selected_square = None
+
+        # 🔹 Turno de la IA
+        if mode == "ia" and board.turn == "b" and running:
+            from IA.search import minimax
+            score, best_move = minimax(board, depth=2, is_maximizing=False)
+            if best_move:
+                board.make_move(best_move)
+
+                # Verificar jaque mate
+                if board.is_checkmate("w"):
+                    action = modal_game_over(screen, "¡Jaque Mate! Ganaron las Negras", board)
+                    if action == "play_again":
+                        board = ChessBoard()
+                        selected_square = None
+
+        # --- Dibujar tablero final ---
         draw_board(screen)
-        # 2. Resaltar al rey si está en jaque
         if board.is_check(board.turn):
             if board.turn == "w":
                 king_row, king_col = board.white_king_pos
             else:
                 king_row, king_col = board.black_king_pos
-            from gui.board import highlight_king_in_check
             highlight_king_in_check(screen, king_row, king_col)
-            
-        # 2. Si hay selección, resáltala
+
         if selected_square is not None:
             highlight_square(screen, selected_square[0], selected_square[1])
 
-        # 3. Dibuja piezas encima
         for row in range(8):
             for col in range(8):
                 piece = board.get_piece(row, col)
@@ -195,3 +262,4 @@ def run_game():
         clock.tick(60)
 
     pygame.quit()
+
