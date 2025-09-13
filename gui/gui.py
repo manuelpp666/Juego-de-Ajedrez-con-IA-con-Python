@@ -4,6 +4,8 @@ from gui.pieces import load_images, IMAGES
 from chessLogic.chessboard import ChessBoard
 from chessLogic.move import Move
 from IA.search import get_best_move
+from IA.move_generator import MoveGenerator 
+
 
 WIDTH, HEIGHT = 640, 640
 SQ_SIZE = WIDTH // 8
@@ -237,7 +239,7 @@ def run_game():
         # Si modo IA y ahora es turno de las negras y antes NO era turno de negras, llamamos 1 vez.
         if mode == "ia" and board.turn == "b" and last_turn != board.turn and running:
             
-            best_move = get_best_move(board, depth=2)
+            best_move = get_best_move(board, max_depth=2)
             if best_move:
                 board.make_move(best_move)
 

@@ -132,10 +132,19 @@ class ChessBoard:
         # Guardar estado antes del movimiento
         move.prev_castling_rights = self.castling_rights.copy()
         move.prev_en_passant = self.en_passant_square
+        move.prev_white_king_pos = self.white_king_pos
+        move.prev_black_king_pos = self.black_king_pos
 
         # Movimiento normal
         self.board[move.start_row][move.start_col] = "--"
         self.board[move.end_row][move.end_col] = move.piece_moved
+
+        # 🔹 Actualizar posición del rey si se mueve
+        if move.piece_moved[1] == "k":
+            if move.piece_moved[0] == "w":
+                self.white_king_pos = (move.end_row, move.end_col)
+            else:
+                self.black_king_pos = (move.end_row, move.end_col)
 
         # 🔹 Promoción
         if move.is_pawn_promotion:
@@ -150,21 +159,17 @@ class ChessBoard:
                 self.board[move.end_row][3] = self.board[move.end_row][0]
                 self.board[move.end_row][0] = "--"
 
-        # 🔹 Actualizar en_passant_square correctamente
-        self.en_passant_square = None  # reset por defecto
-
+        # 🔹 En passant
+        self.en_passant_square = None
         if move.piece_moved[1] == "p" and abs(move.end_row - move.start_row) == 2:
             row = (move.start_row + move.end_row) // 2
             col = move.start_col
-            # solo marcar en_passant si hay un peón enemigo a la izquierda o derecha
             if (col > 0 and self.board[move.end_row][col-1][0:1] == ('b' if move.piece_moved[0] == 'w' else 'w')) or \
             (col < 7 and self.board[move.end_row][col+1][0:1] == ('b' if move.piece_moved[0] == 'w' else 'w')):
                 self.en_passant_square = (row, col)
 
-        # 🔹 En passant
         if move.is_en_passant:
             direction = 1 if move.piece_moved[0] == "b" else -1
-            # Captura correcta del peón al paso
             move.piece_captured = self.board[move.end_row - direction][move.end_col]
             self.board[move.end_row - direction][move.end_col] = "--"
 
@@ -222,12 +227,17 @@ class ChessBoard:
             self.board[move.end_row - direction][move.end_col] = move.piece_captured
             self.board[move.end_row][move.end_col] = "--"
 
+        # Restaurar posiciones de los reyes
+        self.white_king_pos = move.prev_white_king_pos
+        self.black_king_pos = move.prev_black_king_pos
+
         # Restaurar estados previos
         self.castling_rights = move.prev_castling_rights
         self.en_passant_square = move.prev_en_passant
 
         # Revertir turno
         self.turn = "b" if self.turn == "w" else "w"
+
 
 
     

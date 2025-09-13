@@ -1,4 +1,4 @@
-# chessLogic/move_generator.py
+# IA/move_generator.py
 from chessLogic.moves import is_legal_move
 from chessLogic.rules import ChessRules
 from chessLogic.move import Move
