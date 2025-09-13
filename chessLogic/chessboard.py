@@ -2,6 +2,7 @@ from . import moves
 from . import rules
 from .move import Move
 from chessLogic.utils import get_all_moves
+from chessLogic.rules import ChessRules
 
 class ChessBoard:
     def __init__(self):
@@ -149,18 +150,23 @@ class ChessBoard:
                 self.board[move.end_row][3] = self.board[move.end_row][0]
                 self.board[move.end_row][0] = "--"
 
+        # 🔹 Actualizar en_passant_square correctamente
+        self.en_passant_square = None  # reset por defecto
+
+        if move.piece_moved[1] == "p" and abs(move.end_row - move.start_row) == 2:
+            row = (move.start_row + move.end_row) // 2
+            col = move.start_col
+            # solo marcar en_passant si hay un peón enemigo a la izquierda o derecha
+            if (col > 0 and self.board[move.end_row][col-1][0:1] == ('b' if move.piece_moved[0] == 'w' else 'w')) or \
+            (col < 7 and self.board[move.end_row][col+1][0:1] == ('b' if move.piece_moved[0] == 'w' else 'w')):
+                self.en_passant_square = (row, col)
+
         # 🔹 En passant
         if move.is_en_passant:
-            if move.piece_moved[0] == "w":
-                self.board[move.end_row + 1][move.end_col] = "--"
-            else:
-                self.board[move.end_row - 1][move.end_col] = "--"
-
-        # 🔹 Actualizar en_passant
-        if move.piece_moved[1] == "p" and abs(move.end_row - move.start_row) == 2:
-            self.en_passant_square = ((move.start_row + move.end_row)//2, move.start_col)
-        else:
-            self.en_passant_square = None
+            direction = 1 if move.piece_moved[0] == "b" else -1
+            # Captura correcta del peón al paso
+            move.piece_captured = self.board[move.end_row - direction][move.end_col]
+            self.board[move.end_row - direction][move.end_col] = "--"
 
         # 🔹 Actualizar derechos de enroque
         if move.piece_moved == "wk":
@@ -212,11 +218,9 @@ class ChessBoard:
 
         # 🔹 Revertir en passant
         if move.is_en_passant:
+            direction = 1 if move.piece_moved[0] == "b" else -1
+            self.board[move.end_row - direction][move.end_col] = move.piece_captured
             self.board[move.end_row][move.end_col] = "--"
-            if move.piece_moved[0] == "w":
-                self.board[move.end_row + 1][move.end_col] = "bp"
-            else:
-                self.board[move.end_row - 1][move.end_col] = "wp"
 
         # Restaurar estados previos
         self.castling_rights = move.prev_castling_rights
@@ -225,32 +229,32 @@ class ChessBoard:
         # Revertir turno
         self.turn = "b" if self.turn == "w" else "w"
 
+
     
 
 
     def is_game_over(self):
-        """
-        Devuelve True si el juego terminó: jaque mate o tablas por ahogado.
-        """
-        # Tablas: ningún movimiento válido para el jugador actual
-        if not self.has_valid_moves("w") or not self.has_valid_moves("b"):
-            return True
-        # Jaque mate
         if self.is_checkmate("w") or self.is_checkmate("b"):
+            return True
+        if self.is_stalemate("w") or self.is_stalemate("b"):
             return True
         return False
     
-    def get_legal_moves(self):
-        """
-        Devuelve una lista de objetos Move que son legales para el turno actual.
-        """
+    def get_legal_moves(self, color=None):
+        if color is None:
+            color = self.turn  # por defecto usa el turno actual
+
         legal_moves = []
-        all_moves = get_all_moves(self, self.turn, pseudo_legal=True)  # retorna [(start, end), ...]
         
-        for start, end in all_moves:
-            if self.is_valid_move(start, end):
-                move = Move(start, end, self.board)
-                legal_moves.append(move)
-        
+        pseudo_moves = get_all_moves(self, color, pseudo_legal=False)
+
+        # Filtrar los movimientos que dejen al rey en jaque
+        for move in pseudo_moves:
+            self.make_move(Move(move[0], move[1], self))
+            if not ChessRules.is_in_check(self, color):
+                legal_moves.append(Move(move[0], move[1], self))
+            self.undo_move()
+
         return legal_moves
+
     

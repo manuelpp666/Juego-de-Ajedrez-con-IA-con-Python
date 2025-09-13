@@ -3,6 +3,7 @@ from gui.board import draw_board, highlight_square, highlight_king_in_check
 from gui.pieces import load_images, IMAGES
 from chessLogic.chessboard import ChessBoard
 from chessLogic.move import Move
+from IA.search import get_best_move
 
 WIDTH, HEIGHT = 640, 640
 SQ_SIZE = WIDTH // 8
@@ -159,7 +160,7 @@ def modal_choose_mode(screen):
 def run_game():
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("Ajedrez con IA")
+    pygame.display.set_caption("Ajedrez con IA: PHIA")
 
     clock = pygame.time.Clock()
     board = ChessBoard()
@@ -171,12 +172,16 @@ def run_game():
     selected_square = None
     running = True
 
+    # --- Control para que la IA piense sólo UNA vez por turno ---
+    last_turn = board.turn  # guardamos el turno anterior; si cambia a 'b' llamamos a la IA una vez
+
     while running:
+        # --- 1) Procesar eventos ---
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
 
-            # Turno humano
+            # Turno humano (si corresponde)
             if mode == "human" or (mode == "ia" and board.turn == "w"):
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     x, y = pygame.mouse.get_pos()
@@ -197,16 +202,17 @@ def run_game():
                                 promote_to = promotion_menu(screen, piece[0])
 
                             turno_actual = board.turn
-                            move = Move(start, end, board.board, promotion_choice=promote_to or "q")
+                            move = Move(start, end, board, promotion_choice=promote_to or "q")
                             board.make_move(move)
 
-                            # 🔹 Actualizar pantalla inmediatamente para ver tu jugada
+                            # actualizar pantalla inmediatamente para mostrar tu jugada
                             draw_board(screen)
                             if board.is_check(board.turn):
                                 if board.turn == "w":
                                     king_row, king_col = board.white_king_pos
                                 else:
                                     king_row, king_col = board.black_king_pos
+                                from gui.board import highlight_king_in_check
                                 highlight_king_in_check(screen, king_row, king_col)
                             for r in range(8):
                                 for c in range(8):
@@ -223,13 +229,15 @@ def run_game():
                                 if action == "play_again":
                                     board = ChessBoard()
                                     selected_square = None
+                                    last_turn = board.turn
 
                         selected_square = None
 
-        # 🔹 Turno de la IA
-        if mode == "ia" and board.turn == "b" and running:
-            from IA.search import minimax
-            score, best_move = minimax(board, depth=2, is_maximizing=False)
+        # --- 2) Turno de la IA: fuera del for-event, y SOLO si acabó de cambiar a turno IA ---
+        # Si modo IA y ahora es turno de las negras y antes NO era turno de negras, llamamos 1 vez.
+        if mode == "ia" and board.turn == "b" and last_turn != board.turn and running:
+            
+            best_move = get_best_move(board, depth=2)
             if best_move:
                 board.make_move(best_move)
 
@@ -240,13 +248,17 @@ def run_game():
                         board = ChessBoard()
                         selected_square = None
 
-        # --- Dibujar tablero final ---
+        # Actualizamos last_turn para la siguiente iteración
+        last_turn = board.turn
+
+        # --- 3) Dibujar pantalla ---
         draw_board(screen)
         if board.is_check(board.turn):
             if board.turn == "w":
                 king_row, king_col = board.white_king_pos
             else:
                 king_row, king_col = board.black_king_pos
+            from gui.board import highlight_king_in_check
             highlight_king_in_check(screen, king_row, king_col)
 
         if selected_square is not None:
@@ -262,4 +274,5 @@ def run_game():
         clock.tick(60)
 
     pygame.quit()
+
 

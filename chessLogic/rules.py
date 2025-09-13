@@ -50,9 +50,68 @@ class ChessRules:
             chessboard.board[row][col] = "b" + new_piece
 
     @staticmethod
-    def is_square_attacked(chessboard, square, by_color):
-        enemy_moves = get_all_moves(chessboard, by_color, pseudo_legal=True)
-        return square in [m[1] for m in enemy_moves]
+    def is_square_attacked(chessboard, square, enemy_color):
+        """
+        Devuelve True si la casilla está atacada por alguna pieza de enemy_color.
+        """
+        board = chessboard.board
+        r, c = square
+
+        # --- Peones ---
+        direction = -1 if enemy_color == "w" else 1
+        for dc in [-1, 1]:
+            nr, nc = r + direction, c + dc
+            if 0 <= nr < 8 and 0 <= nc < 8:
+                if board[nr][nc] == enemy_color + "p":
+                    return True
+
+        # --- Caballos ---
+        knight_moves = [(2, 1), (2, -1), (-2, 1), (-2, -1),
+                        (1, 2), (1, -2), (-1, 2), (-1, -2)]
+        for dr, dc in knight_moves:
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < 8 and 0 <= nc < 8:
+                if board[nr][nc] == enemy_color + "n":
+                    return True
+
+        # --- Alfiles y Damas (diagonales) ---
+        directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+        for dr, dc in directions:
+            nr, nc = r, c
+            while True:
+                nr += dr
+                nc += dc
+                if not (0 <= nr < 8 and 0 <= nc < 8):
+                    break
+                if board[nr][nc] != "--":
+                    if board[nr][nc] in [enemy_color + "b", enemy_color + "q"]:
+                        return True
+                    break
+
+        # --- Torres y Damas (líneas rectas) ---
+        directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+        for dr, dc in directions:
+            nr, nc = r, c
+            while True:
+                nr += dr
+                nc += dc
+                if not (0 <= nr < 8 and 0 <= nc < 8):
+                    break
+                if board[nr][nc] != "--":
+                    if board[nr][nc] in [enemy_color + "r", enemy_color + "q"]:
+                        return True
+                    break
+
+        # --- Rey enemigo ---
+        king_moves = [(1, 0), (-1, 0), (0, 1), (0, -1),
+                      (1, 1), (1, -1), (-1, 1), (-1, -1)]
+        for dr, dc in king_moves:
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < 8 and 0 <= nc < 8:
+                if board[nr][nc] == enemy_color + "k":
+                    return True
+
+        return False
 
     @staticmethod
     def is_in_check(chessboard, color):
@@ -121,3 +180,39 @@ class ChessRules:
             board[start[0]][start[1]] = "--"
             board[end[0] - direction][end[1]] = "--"  # eliminar peón capturado
             chessboard.en_passant_square = None
+
+    @staticmethod
+    def is_checkmate(board, color):
+        # 1. ¿El rey de este color está en jaque?
+        if not ChessRules.is_in_check(board, color):
+            return False
+
+        # 2. ¿Hay algún movimiento legal que lo salve?
+        moves = board.get_legal_moves(color)
+        for move in moves:
+            board.make_move(move)
+            if not ChessRules.is_in_check(board, color):
+                board.undo_move()
+                return False  # Encontró un movimiento que lo salva
+            board.undo_move()
+
+        # Si no hay escape:
+        return True
+
+    @staticmethod
+    def is_stalemate(board, color):
+        # 1. Si el rey está en jaque, no es ahogado
+        if ChessRules.is_in_check(board, color):
+            return False
+
+        # 2. Si tiene al menos un movimiento legal, no es ahogado
+        moves = board.get_legal_moves(color)
+        for move in moves:
+            board.make_move(move)
+            if not ChessRules.is_in_check(board, color):
+                board.undo_move()
+                return False
+            board.undo_move()
+
+        # 3. Si no hay movimiento legal, es ahogado
+        return True
