@@ -58,9 +58,13 @@ class ChessRules:
         r, c = square
 
         # --- Peones ---
-        direction = -1 if enemy_color == "w" else 1
-        for dc in [-1, 1]:
-            nr, nc = r + direction, c + dc
+        if enemy_color == "w":  # peones blancos atacan hacia abajo (hacia mayor fila)
+            attack_dirs = [(1, -1), (1, 1)]
+        else:  # peones negros atacan hacia arriba (hacia menor fila)
+            attack_dirs = [(-1, -1), (-1, 1)]
+
+        for dr, dc in attack_dirs:
+            nr, nc = r + dr, c + dc
             if 0 <= nr < 8 and 0 <= nc < 8:
                 if board[nr][nc] == enemy_color + "p":
                     return True
