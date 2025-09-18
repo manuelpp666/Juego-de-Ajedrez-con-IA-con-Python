@@ -39,7 +39,48 @@ class ChessRules:
 
     @staticmethod
     def en_passant(chessboard, start, end):
-        return chessboard.en_passant_square == end
+        """
+        Validación completa de en passant:
+        - existe en_passant_square y coincide con end
+        - la pieza en start es un peón
+        - el movimiento start->end es una diagonal de 1 en la dirección correcta
+        - en la casilla que sería capturada (fila start_row, columna end_col)
+          debe haber un peón enemigo
+        """
+        sr, sc = start
+        er, ec = end
+
+        # límites
+        if not (0 <= sr < 8 and 0 <= sc < 8 and 0 <= er < 8 and 0 <= ec < 8):
+            return False
+
+        piece = chessboard.board[sr][sc]
+        if piece == "--" or piece[1] != "p":
+            return False
+
+        # debe existir y coincidir la casilla de en_passant
+        if chessboard.en_passant_square is None:
+            return False
+        if (er, ec) != chessboard.en_passant_square:
+            return False
+
+        # dirección: las blancas se mueven "hacia arriba" en tu indexing (-1), negras hacia abajo (+1)
+        direction = -1 if piece[0] == "w" else 1
+
+        # el movimiento debe ser un diagonal de 1 en la dirección correcta
+        if (er - sr) != direction or abs(ec - sc) != 1:
+            return False
+
+        # la casilla del peón vulnerable está en la fila sr y columna ec
+        cap_r, cap_c = sr, ec
+        if not (0 <= cap_r < 8 and 0 <= cap_c < 8):
+            return False
+        captured = chessboard.board[cap_r][cap_c]
+        # debe haber un peón enemigo ahí
+        if captured == "--" or captured[1] != "p" or captured[0] == piece[0]:
+            return False
+
+        return True
 
     @staticmethod
     def promote(chessboard, row, col, new_piece="q"):

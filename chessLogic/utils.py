@@ -2,7 +2,7 @@
 
 def get_all_moves(chessboard, color, pseudo_legal=False):
     from .moves import is_legal_move
-    from .rules import ChessRules
+    
 
     moves_list = []
     board = chessboard.board

@@ -20,10 +20,26 @@ def is_legal_move(chessboard, start_pos, end_pos, piece_type=None, pseudo_legal=
         return False
 
     if p_type == "p":
+        # movimiento normal / captura normal
         if _is_pawn_move(board, start_pos, end_pos, color):
             return True
-        if ChessRules.en_passant(chessboard, start_pos, end_pos):
-            return True
+
+        # --- EN PASSANT: validación estricta basada en start y end ---
+        ep = chessboard.en_passant_square
+        if ep is not None:
+            er, ec = ep
+            # el end_pos debe coincidir con la casilla de en_passant
+            if (end_row, end_col) == (er, ec):
+                direction = -1 if color == "w" else 1
+                # debe ser un movimiento diagonal de 1 (col adyacente y fila correcta)
+                if (end_row - start_row) == direction and abs(end_col - start_col) == 1:
+                    # además comprobamos que la casilla que contiene el peón "vulnerable"
+                    # esté ocupada por un peón enemigo (en la misma fila que start, en la col end_col)
+                    captured_r, captured_c = start_row, end_col
+                    if 0 <= captured_r < 8 and 0 <= captured_c < 8:
+                        cap = board[captured_r][captured_c]
+                        if cap != "--" and cap[1] == "p" and cap[0] != color:
+                            return True
         return False
     elif p_type == "r":
         return _is_rook_move(board, start_pos, end_pos)

@@ -4,7 +4,7 @@ from gui.pieces import load_images, IMAGES
 from chessLogic.chessboard import ChessBoard
 from chessLogic.move import Move
 from IA.search import get_best_move
-from IA.move_generator import MoveGenerator 
+
 
 
 WIDTH, HEIGHT = 640, 640
