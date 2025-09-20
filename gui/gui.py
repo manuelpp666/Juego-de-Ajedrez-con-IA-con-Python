@@ -244,14 +244,14 @@ def run_game():
                 board.make_move(best_move)
 
                 # Verificar jaque mate
-                if board.is_checkmate("w"):
-                    action = modal_game_over(screen, "¡Jaque Mate! Ganaron las Negras", board)
+                rival = board.turn  # ← después de mover la IA, le toca al rival
+                if board.is_checkmate(rival):
+                    ganador = "Negras"  # porque fue la IA quien dio el mate
+                    action = modal_game_over(screen, f"¡Jaque Mate! Ganaron las {ganador}", board)
                     if action == "play_again":
                         board = ChessBoard()
                         selected_square = None
-
-        # Actualizamos last_turn para la siguiente iteración
-        last_turn = board.turn
+                        last_turn = board.turn
 
         # --- 3) Dibujar pantalla ---
         draw_board(screen)
