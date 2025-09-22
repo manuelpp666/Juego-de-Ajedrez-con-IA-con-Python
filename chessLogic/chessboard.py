@@ -267,4 +267,25 @@ class ChessBoard:
 
         return legal_moves
 
+    def is_stalemate(self, current_turn):
+        """
+        Verifica si el juego está en ahogado (stalemate) para el turno actual.
+        Ahogado: El jugador actual no tiene movimientos legales y no está en jaque.
+        
+        Args:
+            current_turn (str): 'w' para blancas o 'b' para negras.
+        
+        Returns:
+            bool: True si es ahogado, False otherwise.
+        """
+        # Verificar si el jugador actual no está en jaque
+        if self.is_check(current_turn):
+            return False
+        
+        # Generar todos los movimientos legales para el jugador actual
+        legal_moves = self.get_legal_moves(current_turn)
+        
+        # Si no hay movimientos legales y no está en jaque, es ahogado
+        return len(legal_moves) == 0
+
     
