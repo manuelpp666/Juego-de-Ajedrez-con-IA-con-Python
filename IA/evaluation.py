@@ -92,7 +92,7 @@ def evaluate_board(board):
     """
     Eval = w1*Material + w2*Posición + w3*Movilidad + w4*SeguridadRey + w5*EstructuraPeones + w6*OtrasHeurísticas
     """
-    from chessLogic.utils import get_all_moves
+    
 
     material_score = 0
     position_score = 0

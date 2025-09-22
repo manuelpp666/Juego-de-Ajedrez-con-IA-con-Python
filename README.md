@@ -10,6 +10,7 @@ chess-ai/
 │   ├── move_generator.py
 │   ├── evaluation.py
 │   └── search.py
+│   └── a_star.py
 │
 │── chessLogic/             # Lógica del ajedrez en sí (independiente del GUI)
 │   ├── __init__.py

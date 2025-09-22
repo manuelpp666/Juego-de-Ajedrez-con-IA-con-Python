@@ -192,6 +192,61 @@ def modal_choose_mode(screen):
                     return "ia"
         pygame.display.flip()
 
+def modal_choose_difficulty(screen):
+    """
+    Modal para elegir dificultad de la IA: fácil (A*) o difícil (Minimax).
+    Retorna 'easy' o 'hard'.
+    """
+    font = pygame.font.SysFont("Arial", 36, bold=True)
+    small_font = pygame.font.SysFont("Arial", 28)
+
+    # Fondo
+    screen.fill((30, 30, 30))
+
+    # Panel
+    panel_width = 450
+    panel_height = 250
+    panel_x = (WIDTH - panel_width) // 2
+    panel_y = (HEIGHT - panel_height) // 2
+    panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+    pygame.draw.rect(screen, (50, 50, 50), panel_rect, border_radius=15)
+    pygame.draw.rect(screen, (200, 200, 200), panel_rect, 3, border_radius=15)
+
+    # Texto principal
+    text = font.render("Elige dificultad", True, (255, 255, 255))
+    text_rect = text.get_rect(center=(WIDTH//2, panel_y + 50))
+    screen.blit(text, text_rect)
+
+    # Botón Fácil
+    easy_rect = pygame.Rect(panel_x + (panel_width - 280) // 2, panel_y + 120, 280, 50)
+    pygame.draw.rect(screen, (0, 120, 0), easy_rect, border_radius=10)  # Verde oscuro
+    pygame.draw.rect(screen, (0, 200, 0), easy_rect, 2, border_radius=10)  # Verde claro
+    e_text = small_font.render("Fácil (A*)", True, (255, 255, 255))
+    e_text_rect = e_text.get_rect(center=easy_rect.center)
+    screen.blit(e_text, e_text_rect)
+
+    # Botón Difícil
+    hard_rect = pygame.Rect(panel_x + (panel_width - 280) // 2, panel_y + 190, 280, 50)
+    pygame.draw.rect(screen, (120, 0, 0), hard_rect, border_radius=10)  # Rojo oscuro
+    pygame.draw.rect(screen, (200, 0, 0), hard_rect, 2, border_radius=10)  # Rojo claro
+    h_text = small_font.render("Difícil (Minimax)", True, (255, 255, 255))
+    h_text_rect = h_text.get_rect(center=hard_rect.center)
+    screen.blit(h_text, h_text_rect)
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                x, y = pygame.mouse.get_pos()
+                if easy_rect.collidepoint(x, y):
+                    return "easy"
+                elif hard_rect.collidepoint(x, y):
+                    return "hard"
+        pygame.display.flip()
+
+
 def run_game():
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -204,17 +259,16 @@ def run_game():
     # 🔹 Preguntar modo antes de iniciar
     mode = modal_choose_mode(screen)  # ← 'ia' o 'human'
 
+    difficulty = None
+    if mode == "ia":
+        difficulty = modal_choose_difficulty(screen)  # ← 'easy' o 'hard'
+
     selected_square = None
     running = True
-
-    # --- Control para que la IA piense sólo UNA vez por turno ---
-    last_turn = board.turn  # guardamos el turno anterior; si cambia a 'b' llamamos a la IA una vez
+    last_turn = board.turn  # Guardamos el turno anterior
 
     while running:
-        # Flag para rastrear si el humano se movió en este ciclo
-        human_moved = False
-
-        # CORREGIDO: Definir is_human_turn AQUÍ, fuera del bucle for, para que sea accesible en todo el ciclo
+        
         is_human_turn = mode == "human" or (mode == "ia" and board.turn == "w")
 
         # --- 1) Procesar eventos ---
@@ -222,7 +276,6 @@ def run_game():
             if event.type == pygame.QUIT:
                 running = False
 
-            # Turno humano (si corresponde): Procesar clics para selección y movimiento
             if is_human_turn:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     x, y = pygame.mouse.get_pos()
@@ -230,17 +283,13 @@ def run_game():
                     row = y // SQ_SIZE
 
                     if selected_square is None:
-                        # Solo permitir seleccionar una pieza del color del turno actual
                         piece_at_square = board.get_piece(row, col)
                         if piece_at_square != "--" and piece_at_square[0] == board.turn:
                             selected_square = (row, col)
                     else:
-                        # Intentar mover
                         start = selected_square
                         end = (row, col)
                         piece = board.get_piece(*start)
-
-                        # Crear un objeto Move para la validación
                         temp_move = Move(start, end, board)
 
                         if board.is_valid_move(start, end):
@@ -252,7 +301,6 @@ def run_game():
                             move = Move(start, end, board, promotion_choice=promote_to or "q")
                             board.make_move(move)
 
-                            # Actualizar pantalla inmediatamente para mostrar la jugada humana
                             draw_board(screen)
                             if board.is_check(board.turn):
                                 king_row, king_col = board.white_king_pos if board.turn == "w" else board.black_king_pos
@@ -263,11 +311,10 @@ def run_game():
                                     if piece_draw != "--":
                                         screen.blit(IMAGES[piece_draw], (c_draw * SQ_SIZE, r_draw * SQ_SIZE))
                             pygame.display.flip()
-                            
-                            # Marcar que el humano se movió
-                            human_moved = True
 
-                            # Verificar jaque mate o ahogado después del movimiento humano
+                            
+
+                            # Revisar fin de juego
                             if board.is_checkmate(board.turn):
                                 ganador = "Blancas" if turno_actual == "w" else "Negras"
                                 action = modal_game_over(screen, f"¡Jaque Mate! Ganaron las {ganador}", board)
@@ -275,7 +322,9 @@ def run_game():
                                     board = ChessBoard()
                                     selected_square = None
                                     last_turn = board.turn
-                                    mode = modal_choose_mode(screen)  # Volver a elegir modo
+                                    mode = modal_choose_mode(screen)
+                                    if mode == "ia":
+                                        difficulty = modal_choose_difficulty(screen)
                                 else:
                                     running = False
                             elif board.is_stalemate(board.turn):
@@ -284,53 +333,27 @@ def run_game():
                                     board = ChessBoard()
                                     selected_square = None
                                     last_turn = board.turn
-                                    mode = modal_choose_mode(screen)  # Volver a elegir modo
+                                    mode = modal_choose_mode(screen)
+                                    if mode == "ia":
+                                        difficulty = modal_choose_difficulty(screen)
                                 else:
                                     running = False
 
-                            last_turn = "w" if board.turn == "b" else "b"  # Actualizar last_turn para el siguiente ciclo
+                            last_turn = "w" if board.turn == "b" else "b"
                         selected_square = None
 
-        # Detección automática de fin de juego para humano (si no se movió y es su turno)
-        if is_human_turn and not human_moved:
-            try:
-                legal_moves = board.get_legal_moves(board.turn)
-                if len(legal_moves) == 0:
-                    if board.is_check(board.turn):
-                        # Checkmate: el humano pierde
-                        perdedor = "Blancas" if board.turn == "w" else "Negras"
-                        ganador = "Negras" if board.turn == "w" else "Blancas"
-                        action = modal_game_over(screen, f"¡Jaque Mate! Ganaron las {ganador} ({perdedor} no puede mover).", board)
-                        if action == "play_again":
-                            board = ChessBoard()
-                            selected_square = None
-                            last_turn = board.turn
-                            mode = modal_choose_mode(screen)  # Volver a elegir modo
-                        else:
-                            running = False
-                    else:
-                        # Stalemate: empate
-                        action = modal_game_over(screen, "¡Ahogado! Es un empate (no hay movimientos legales).", board)
-                        if action == "play_again":
-                            board = ChessBoard()
-                            selected_square = None
-                            last_turn = board.turn
-                            mode = modal_choose_mode(screen)  # Volver a elegir modo
-                        else:
-                            running = False
-            except AttributeError:
-                # Si get_legal_moves o is_check falla por algún motivo, no hacer nada (compatibilidad)
-                pass
-
-        # --- 2) Turno de la IA: fuera del for-event, y SOLO si cambió a turno IA ---
+        # --- 2) Turno de la IA ---
         if mode == "ia" and board.turn == "b" and last_turn != board.turn and running:
-            
-            best_move = get_best_move(board, max_depth=3, time_limit=5.0)  # Ajusta profundidad/tiempo si la IA es lenta
+            if difficulty == "easy":
+                from IA.a_star import get_best_move_astar
+                best_move = get_best_move_astar(board, depth_limit=2, beam_width=5)
+            else:
+                from IA.search import get_best_move
+                best_move = get_best_move(board, max_depth=3, time_limit=5.0)
+
             if best_move:
-                # Hacer el movimiento de la IA
                 board.make_move(best_move)
 
-                # Actualizar pantalla después del movimiento de la IA
                 draw_board(screen)
                 if board.is_check(board.turn):
                     king_row, king_col = board.white_king_pos if board.turn == "w" else board.black_king_pos
@@ -342,15 +365,17 @@ def run_game():
                             screen.blit(IMAGES[piece_draw], (c_draw * SQ_SIZE, r_draw * SQ_SIZE))
                 pygame.display.flip()
 
-                # Verificar jaque mate o ahogado después del movimiento de la IA
+                # Revisar fin de juego
                 if board.is_checkmate(board.turn):
-                    ganador = "Blancas" if board.turn == "w" else "Negras"
+                    ganador = "Negras" if board.turn == "w" else "Blancas"
                     action = modal_game_over(screen, f"¡Jaque Mate! Ganaron las {ganador}", board)
                     if action == "play_again":
                         board = ChessBoard()
                         selected_square = None
                         last_turn = board.turn
-                        mode = modal_choose_mode(screen)  # Volver a elegir modo
+                        mode = modal_choose_mode(screen)
+                        if mode == "ia":
+                            difficulty = modal_choose_difficulty(screen)
                     else:
                         running = False
                 elif board.is_stalemate(board.turn):
@@ -359,58 +384,45 @@ def run_game():
                         board = ChessBoard()
                         selected_square = None
                         last_turn = board.turn
-                        mode = modal_choose_mode(screen)  # Volver a elegir modo
+                        mode = modal_choose_mode(screen)
+                        if mode == "ia":
+                            difficulty = modal_choose_difficulty(screen)
                     else:
                         running = False
 
-                # Actualizar last_turn después del movimiento de IA
                 last_turn = board.turn
             else:
-                # Si la IA no encuentra movimiento (raro), pasar turno o empatar
                 print("IA no encontró movimiento válido.")
                 last_turn = board.turn
 
-        # --- 3) Dibujar el tablero (siempre al final del ciclo) ---
+        # --- 3) Dibujar el tablero ---
         draw_board(screen)
-
-        # Resaltar el rey en jaque si aplica
         if board.is_check(board.turn):
             king_row, king_col = board.white_king_pos if board.turn == "w" else board.black_king_pos
             highlight_king_in_check(screen, king_row, king_col)
 
-        # Dibujar piezas
         for r in range(8):
             for c in range(8):
                 piece = board.get_piece(r, c)
                 if piece != "--":
                     screen.blit(IMAGES[piece], (c * SQ_SIZE, r * SQ_SIZE))
 
-        # Resaltar casilla seleccionada (solo en turno humano)
         if selected_square and is_human_turn:
-            # Resaltar casilla seleccionada
-            highlight_square(screen, selected_square[0], selected_square[1])  # 👈 row, col en el orden correcto
-
+            highlight_square(screen, selected_square[0], selected_square[1])
             try:
                 legal_moves = board.get_legal_moves(board.turn)
-                piece = board.get_piece(*selected_square)
-                
-
                 for move in legal_moves:
-                    
                     if move.start_row == selected_square[0] and move.start_col == selected_square[1]:
-                        
                         highlight_square(screen, move.end_row, move.end_col)
-
             except AttributeError:
-                print("⚠️ board.get_legal_moves no está definido correctamente.")
                 pass
-        
-        
+
         pygame.display.flip()
-        clock.tick(60)  # 60 FPS para fluidez
+        clock.tick(60)
 
     pygame.quit()
     sys.exit()
+
 
 if __name__ == "__main__":
     run_game()
