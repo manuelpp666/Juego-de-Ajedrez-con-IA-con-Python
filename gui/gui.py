@@ -324,7 +324,7 @@ def run_game():
 
         # --- 2) Turno de la IA: fuera del for-event, y SOLO si cambió a turno IA ---
         if mode == "ia" and board.turn == "b" and last_turn != board.turn and running:
-            print("La IA está pensando...")
+            
             best_move = get_best_move(board, max_depth=3, time_limit=5.0)  # Ajusta profundidad/tiempo si la IA es lenta
             if best_move:
                 # Hacer el movimiento de la IA
@@ -387,18 +387,25 @@ def run_game():
 
         # Resaltar casilla seleccionada (solo en turno humano)
         if selected_square and is_human_turn:
-            highlight_square(screen, selected_square[1], selected_square[0])
-            # Resaltar movimientos legales posibles (opcional, para UX) - CORREGIDO: Sin kwargs para compatibilidad
+            # Resaltar casilla seleccionada
+            highlight_square(screen, selected_square[0], selected_square[1])  # 👈 row, col en el orden correcto
+
             try:
                 legal_moves = board.get_legal_moves(board.turn)
+                piece = board.get_piece(*selected_square)
+                
+
                 for move in legal_moves:
+                    
                     if move.start_row == selected_square[0] and move.start_col == selected_square[1]:
-                        # Llamada simplificada: sin color ni alpha, usa el resaltado predeterminado
-                        highlight_square(screen, move.end_col, move.end_row)
+                        
+                        highlight_square(screen, move.end_row, move.end_col)
+
             except AttributeError:
-                pass  # Si no hay get_legal_moves, omitir highlights
-        # Mostrar turno actual en consola (opcional, para debug)
-        print(f"Turno: {board.turn.upper()}")
+                print("⚠️ board.get_legal_moves no está definido correctamente.")
+                pass
+        
+        
         pygame.display.flip()
         clock.tick(60)  # 60 FPS para fluidez
 
